@@ -42,3 +42,13 @@ impl Display for PeekOutOfBoundsError {
 }
 impl Error for PeekOutOfBoundsError {}
 impl ParseError for PeekOutOfBoundsError {}
+
+#[derive(Debug)]
+pub struct InvalidFirstTokenError;
+impl Display for InvalidFirstTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "First token for any tag should be of kind String")
+    }
+}
+impl Error for InvalidFirstTokenError {}
+impl ParseError for InvalidFirstTokenError {}
