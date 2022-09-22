@@ -1,5 +1,5 @@
 use crate::err;
-use std::cell::{RefCell, Ref};
+use std::cell::{Ref, RefCell};
 use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::mem::discriminant;
@@ -136,7 +136,7 @@ impl<'a> TagLexer<'a> {
 #[derive(Debug)]
 pub struct XMLTag {
     pub name: String,
-    pub attribs: HashMap<String, String>
+    pub attribs: HashMap<String, String>,
 }
 
 impl XMLTag {
@@ -150,7 +150,7 @@ pub struct TagParser<'a> {
     pub content: &'a str,
     pub lexer: TagLexer<'a>,
     position: RefCell<usize>,
-    tokens: RefCell<Vec<TagToken<'a>>>
+    tokens: RefCell<Vec<TagToken<'a>>>,
 }
 
 impl<'a> TagParser<'a> {
@@ -159,10 +159,20 @@ impl<'a> TagParser<'a> {
         if content.starts_with("<") && content.ends_with(">") {
             let trimmed = &content[1..content.len() - 1];
             let lexer = TagLexer::new(trimmed);
-            return Self { content: trimmed, lexer, position: RefCell::new(0), tokens };
+            return Self {
+                content: trimmed,
+                lexer,
+                position: RefCell::new(0),
+                tokens,
+            };
         }
         let lexer = TagLexer::new(content);
-        Self { content, lexer, position: RefCell::new(0), tokens }
+        Self {
+            content,
+            lexer,
+            position: RefCell::new(0),
+            tokens,
+        }
     }
 
     fn tokenize(&'a self) -> Result<(), Box<dyn err::TagParseError>> {
@@ -173,7 +183,6 @@ impl<'a> TagParser<'a> {
                 break;
             }
             if let TokenKind::Whitespace = cur_token.kind {
-
             } else {
                 self.tokens.borrow_mut().push(cur_token);
             }
@@ -184,14 +193,18 @@ impl<'a> TagParser<'a> {
     fn peek(&self, offset: i64) -> Result<Ref<'a, TagToken>, err::PeekOutOfBoundsError> {
         let pos_copy = *self.position.borrow() as i64;
         if pos_copy + offset < 0 || pos_copy + offset >= self.content.len() as i64 {
-            return Err(err::PeekOutOfBoundsError { peek_offset: offset, cur_idx: *self.position.borrow(), len: self.content.len()});
+            return Err(err::PeekOutOfBoundsError {
+                peek_offset: offset,
+                cur_idx: *self.position.borrow(),
+                len: self.content.len(),
+            });
         }
         let idx = (pos_copy + offset) as usize;
-        return Ok(Ref::map(self.tokens.borrow(), |tkns| { &tkns[idx] }));
+        return Ok(Ref::map(self.tokens.borrow(), |tkns| &tkns[idx]));
     }
 
     fn cur_token(&self) -> Ref<'a, TagToken> {
-        Ref::map(self.tokens.borrow(), |tkns| { &tkns[*self.position.borrow()] })
+        Ref::map(self.tokens.borrow(), |tkns| &tkns[*self.position.borrow()])
     }
 
     fn next(&self) {
@@ -217,18 +230,26 @@ impl<'a> TagParser<'a> {
 
         while !self.end() {
             let cur = self.cur_token();
-            
+
             if let TokenKind::Equals = cur.kind {
                 let left = match self.peek(-1) {
                     Ok(tkn) => tkn,
                     Err(_) => {
-                        return Err(Box::new(err::NoTokenAtLocationError { expected_kind: String::from("String"), direction: String::from("left"), current: String::from("Equals") }));
+                        return Err(Box::new(err::NoTokenAtLocationError {
+                            expected_kind: String::from("String"),
+                            direction: String::from("left"),
+                            current: String::from("Equals"),
+                        }));
                     }
                 };
                 let right = match self.peek(1) {
                     Ok(tkn) => tkn,
                     Err(_) => {
-                        return Err(Box::new(err::NoTokenAtLocationError { expected_kind: String::from("StringLiteral"), direction: String::from("right"), current: String::from("Equals") }));
+                        return Err(Box::new(err::NoTokenAtLocationError {
+                            expected_kind: String::from("StringLiteral"),
+                            direction: String::from("right"),
+                            current: String::from("Equals"),
+                        }));
                     }
                 };
                 if let (TokenKind::String, TokenKind::StringLiteral) = (&left.kind, &right.kind) {
@@ -236,7 +257,7 @@ impl<'a> TagParser<'a> {
                     let v = String::from(&right.text[1..right.text.len() - 1]);
                     attribs.insert(k, v);
                 } else {
-                    return Err(Box::new(err::UnexpectedTagTokenError))
+                    return Err(Box::new(err::UnexpectedTagTokenError));
                 }
             }
             self.next();
@@ -260,7 +281,7 @@ mod tests {
             TagToken::new(" ", TokenKind::Whitespace, 15),
             TagToken::new("__string2", TokenKind::String, 16),
             TagToken::new(" ", TokenKind::Whitespace, 25),
-            TagToken::new("_string_3_", TokenKind::String, 26)
+            TagToken::new("_string_3_", TokenKind::String, 26),
         ];
 
         let test_lexer = TagLexer::new(text);
@@ -312,10 +333,7 @@ mod tests {
 
         let mut actual_attribs: HashMap<String, String> = HashMap::new();
 
-        actual_attribs.insert(
-            String::from("attribute1"),
-            String::from("value1")
-        );
+        actual_attribs.insert(String::from("attribute1"), String::from("value1"));
 
         assert_eq!(test_tag.name, String::from("tagname"));
         assert_eq!(test_tag.attribs, actual_attribs);
