@@ -68,3 +68,14 @@ impl Display for NoTokenAtLocationError {
 impl Error for NoTokenAtLocationError {}
 impl ParseError for NoTokenAtLocationError {}
 impl TagParseError for NoTokenAtLocationError {}
+
+#[derive(Debug)]
+pub struct UnexpectedTagTokenError;
+impl Display for UnexpectedTagTokenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Expected String token on the left and StringLiteral token on the right of Equals token")
+    }
+}
+impl Error for UnexpectedTagTokenError {}
+impl ParseError for UnexpectedTagTokenError {}
+impl TagParseError for UnexpectedTagTokenError {}
