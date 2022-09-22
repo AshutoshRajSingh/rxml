@@ -52,3 +52,4 @@ impl Display for InvalidFirstTokenError {
 }
 impl Error for InvalidFirstTokenError {}
 impl ParseError for InvalidFirstTokenError {}
+impl TagParseError for InvalidFirstTokenError {}
