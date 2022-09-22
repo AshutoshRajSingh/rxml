@@ -53,7 +53,7 @@ impl<'a> TagLexer<'a> {
     }
     fn current(&self) -> char {
         if self.end() {
-            return self.content.as_bytes()[self.content.len() - 1] as char;
+            return '\0';
         }
         self.content.as_bytes()[self.cur()] as char
     }
@@ -98,8 +98,8 @@ impl<'a> TagLexer<'a> {
                 TokenKind::StringLiteral,
                 start,
             ));
-        } else if self.current().is_alphabetic() {
-            while self.current().is_alphanumeric() {
+        } else if self.current().is_alphabetic() || self.current() == '_' {
+            while self.current().is_alphanumeric() || self.current() == '_' {
                 self.next();
             }
 
@@ -148,6 +148,34 @@ impl<'a> TagParser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_string_tokenization() {
+        let text = "tagname string1 __string2 _string_3_";
+
+        let actual_tokens = vec![
+            TagToken::new("tagname", TokenKind::String, 0),
+            TagToken::new(" ", TokenKind::Whitespace, 7),
+            TagToken::new("string1", TokenKind::String, 8),
+            TagToken::new(" ", TokenKind::Whitespace, 15),
+            TagToken::new("__string2", TokenKind::String, 16),
+            TagToken::new(" ", TokenKind::Whitespace, 25),
+            TagToken::new("_string_3_", TokenKind::String, 26)
+        ];
+
+        let test_lexer = TagLexer::new(text);
+        let mut tokens: Vec<TagToken> = Vec::new();
+
+        while let Ok(token) = test_lexer.next_token() {
+            if let TokenKind::EndOfLine = token.kind {
+                break;
+            }
+            println!("{:?}", token);
+            tokens.push(token);
+        }
+
+        assert_eq!(tokens, actual_tokens);
+    }
 
     #[test]
     fn test_tag_lexer() {
