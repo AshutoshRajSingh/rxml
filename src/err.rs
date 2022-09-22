@@ -28,3 +28,17 @@ impl Display for UnterminatedAngularBracket {
 }
 impl Error for UnterminatedAngularBracket {}
 impl ParseError for UnterminatedAngularBracket {}
+
+#[derive(Debug)]
+pub struct PeekOutOfBoundsError {
+    peek_offset: i64,
+    cur_idx: usize,
+    len: usize,
+}
+impl Display for PeekOutOfBoundsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Peek out of bounds, offset {} out of bounds for current index {} and total length {}", self.peek_offset, self.cur_idx, self.len)
+    }
+}
+impl Error for PeekOutOfBoundsError {}
+impl ParseError for PeekOutOfBoundsError {}
