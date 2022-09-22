@@ -31,9 +31,9 @@ impl ParseError for UnterminatedAngularBracket {}
 
 #[derive(Debug)]
 pub struct PeekOutOfBoundsError {
-    peek_offset: i64,
-    cur_idx: usize,
-    len: usize,
+    pub peek_offset: i64,
+    pub cur_idx: usize,
+    pub len: usize,
 }
 impl Display for PeekOutOfBoundsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
