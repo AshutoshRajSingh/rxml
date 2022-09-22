@@ -53,3 +53,18 @@ impl Display for InvalidFirstTokenError {
 impl Error for InvalidFirstTokenError {}
 impl ParseError for InvalidFirstTokenError {}
 impl TagParseError for InvalidFirstTokenError {}
+
+#[derive(Debug)]
+pub struct NoTokenAtLocationError {
+    pub expected_kind: String,
+    pub direction: String,
+    pub current: String
+}
+impl Display for NoTokenAtLocationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Expected {} on the {} of {} token but found nothing", self.expected_kind, self.direction, self.current)
+    }
+}
+impl Error for NoTokenAtLocationError {}
+impl ParseError for NoTokenAtLocationError {}
+impl TagParseError for NoTokenAtLocationError {}
