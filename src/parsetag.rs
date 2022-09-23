@@ -12,6 +12,7 @@ pub enum TokenKind {
     Unknown,
     Whitespace,
     EndOfLine,
+    ForwardSlash,
 }
 
 #[derive(Debug, Clone)]
@@ -100,7 +101,7 @@ impl<'a> TagLexer<'a> {
                 start,
             ));
         } else if self.current().is_alphabetic() || self.current() == '_' {
-            while self.current().is_alphanumeric() || self.current() == '_' {
+            while !self.end() && (self.current().is_alphanumeric() || self.current() == '_') {
                 self.next();
             }
 
@@ -117,10 +118,17 @@ impl<'a> TagLexer<'a> {
                 TokenKind::Equals,
                 start,
             ));
+        } else if self.current() == '/' {
+            self.next();
+            return Ok(TagToken::new(
+                &self.content[start..start + 1],
+                TokenKind::ForwardSlash,
+                start,
+            ));
         } else {
             self.next();
 
-            while !self.current().is_whitespace() {
+            while !self.current().is_whitespace() && !self.end() {
                 self.next();
             }
 
@@ -134,14 +142,24 @@ impl<'a> TagLexer<'a> {
 }
 
 #[derive(Debug)]
+pub enum TagKind {
+    Opening,
+    Closing,
+}
+#[derive(Debug)]
 pub struct XMLTag {
     pub name: String,
     pub attribs: HashMap<String, String>,
+    pub kind: TagKind,
 }
 
 impl XMLTag {
-    pub fn new(name: String, attribs: HashMap<String, String>) -> Self {
-        Self { name, attribs }
+    pub fn new(name: String, attribs: HashMap<String, String>, kind: TagKind) -> Self {
+        Self {
+            name,
+            attribs,
+            kind,
+        }
     }
 }
 
@@ -218,10 +236,24 @@ impl<'a> TagParser<'a> {
     pub fn parse(&'a self) -> Result<XMLTag, Box<dyn err::TagParseError>> {
         self.tokenize()?;
         let first = self.cur_token();
+
         let name: String;
+        let kind: TagKind;
 
         if let TokenKind::String = first.kind {
+            kind = TagKind::Opening;
             name = String::from(first.text);
+        } else if let TokenKind::ForwardSlash = first.kind {
+            kind = TagKind::Closing;
+            self.next();
+
+            let second = self.cur_token();
+
+            if let TokenKind::String = second.kind {
+                name = String::from(second.text);
+            } else {
+                return Err(Box::new(err::InvalidFirstTokenError));
+            }
         } else {
             return Err(Box::new(err::InvalidFirstTokenError));
         }
@@ -230,7 +262,6 @@ impl<'a> TagParser<'a> {
 
         while !self.end() {
             let cur = self.cur_token();
-
             if let TokenKind::Equals = cur.kind {
                 let left = match self.peek(-1) {
                     Ok(tkn) => tkn,
@@ -262,7 +293,7 @@ impl<'a> TagParser<'a> {
             }
             self.next();
         }
-        Ok(XMLTag::new(name, attribs))
+        Ok(XMLTag::new(name, attribs, kind))
     }
 }
 
@@ -291,7 +322,6 @@ mod tests {
             if let TokenKind::EndOfLine = token.kind {
                 break;
             }
-            println!("{:?}", token);
             tokens.push(token);
         }
 
@@ -325,8 +355,27 @@ mod tests {
     }
 
     #[test]
-    fn test_tag_parser_success() {
-        let text = "tagname attribute1 = 'value1'";
+    fn test_closing_tag_lexer() {
+        let text = "/tagname";
+        let actual_tokens = vec![
+            TagToken::new("/", TokenKind::ForwardSlash, 0),
+            TagToken::new("tagname", TokenKind::String, 1),
+        ];
+
+        let test_lexer = TagLexer::new(text);
+        let mut obtained_tokens: Vec<TagToken> = Vec::new();
+        while let Ok(token) = test_lexer.next_token() {
+            if let TokenKind::EndOfLine = token.kind {
+                break;
+            }
+            obtained_tokens.push(token);
+        }
+        assert_eq!(actual_tokens, obtained_tokens);
+    }
+
+    #[test]
+    fn test_opening_tag_parser_success() {
+        let text = "<tagname attribute1='value1'>";
 
         let test_parser = TagParser::new(text);
         let test_tag = test_parser.parse().unwrap();
@@ -337,5 +386,33 @@ mod tests {
 
         assert_eq!(test_tag.name, String::from("tagname"));
         assert_eq!(test_tag.attribs, actual_attribs);
+    }
+
+    #[test]
+    fn test_opening_tag_parser_failure() {
+        let text = "<tagname attribute1 = 'oopsie no closing quote>";
+
+        let test_parser = TagParser::new(text);
+
+        match test_parser.parse() {
+            Ok(_tag) => panic!("Blimey mate it was supposed to fail 'ere"),
+            Err(e) => match e.as_any().downcast_ref::<err::UnterminatedStringLiteral>() {
+                Some(_) => {}
+                None => panic!(
+                    "It was supposed to fail but not like this mate, actual error: {:?}",
+                    e
+                ),
+            },
+        }
+    }
+
+    #[test]
+    fn test_closing_tag_parser_success() {
+        let text = "</tagname>";
+
+        let test_parser = TagParser::new(text);
+        let test_tag = test_parser.parse().unwrap();
+
+        println!("{:?}", test_tag);
     }
 }
