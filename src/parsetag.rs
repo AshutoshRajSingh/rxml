@@ -413,6 +413,11 @@ mod tests {
         let test_parser = TagParser::new(text);
         let test_tag = test_parser.parse().unwrap();
 
-        println!("{:?}", test_tag);
+        assert_eq!(test_tag.name, "tagname");
+        
+        match test_tag.kind {
+            TagKind::Closing => {},
+            _ => panic!("Inputted closing tag string, got opening tag output")
+        }
     }
 }
