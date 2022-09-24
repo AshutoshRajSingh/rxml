@@ -396,14 +396,15 @@ mod tests {
 
         match test_parser.parse() {
             Ok(_tag) => panic!("Blimey mate it was supposed to fail 'ere"),
-            Err(e) => {
-                match e {
-                    error::TagParseError::UnterminatedStringLiteral(_loc) => {}
-                    _ => {
-                        panic!("Bugger, got wrong error, expected UnterminatedStringLiteral, got {:?}", e)
-                    }
+            Err(e) => match e {
+                error::TagParseError::UnterminatedStringLiteral(_loc) => {}
+                _ => {
+                    panic!(
+                        "Bugger, got wrong error, expected UnterminatedStringLiteral, got {:?}",
+                        e
+                    )
                 }
-            }
+            },
         }
     }
 

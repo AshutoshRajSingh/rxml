@@ -15,7 +15,7 @@ pub enum TagParseError {
         current: String,
     },
     UnexpectedTagToken,
-    InvalidFirstToken
+    InvalidFirstToken,
 }
 impl Display for TagParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -49,7 +49,10 @@ impl Display for TagParseError {
                 write!(f, "Expected String token on the left and StringLiteral token on the right of Equals token")
             }
             TagParseError::InvalidFirstToken => {
-                write!(f, "First token of any tag should either be of type String or ForwardSlash")
+                write!(
+                    f,
+                    "First token of any tag should either be of type String or ForwardSlash"
+                )
             }
         }
     }
@@ -59,7 +62,7 @@ impl Error for TagParseError {}
 #[derive(Debug)]
 pub enum ParseError {
     UnterminatedAngularBracket(usize),
-    TagParseError(TagParseError)
+    TagParseError(TagParseError),
 }
 
 impl Display for ParseError {
