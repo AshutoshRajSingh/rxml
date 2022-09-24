@@ -1,10 +1,11 @@
 use crate::{
     error,
-    parsetag::{TagParser, XMLTag},
+    parsetag::{TagKind, TagParser, XMLTag},
 };
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
 use std::cmp::PartialEq;
 use std::mem::discriminant;
+use std::rc::Rc;
 
 #[derive(Debug)]
 enum TokenKind {
@@ -40,7 +41,6 @@ pub struct XMLLexer<'a> {
     content: &'a str,
     position: RefCell<usize>,
 }
-
 impl<'a> XMLLexer<'a> {
     pub fn new(content: &'a str) -> Self {
         Self {
@@ -83,9 +83,7 @@ impl<'a> XMLLexer<'a> {
 
             while self.current() != '>' {
                 if self.end() {
-                    return Err(
-                        error::ParseError::UnterminatedAngularBracket(start)
-                    );
+                    return Err(error::ParseError::UnterminatedAngularBracket(start));
                 }
                 self.next();
             }
@@ -120,6 +118,107 @@ impl<'a> XMLLexer<'a> {
     }
 }
 
+#[derive(Debug)]
+pub struct XMLDocNode {
+    content: RefCell<String>,
+    pub tag: XMLTag,
+    pub children: RefCell<Vec<Rc<XMLDocNode>>>,
+}
+
+impl XMLDocNode {
+    fn new(tag: XMLTag) -> Self {
+        Self {
+            content: RefCell::new(String::new()),
+            children: RefCell::new(Vec::new()),
+            tag,
+        }
+    }
+}
+
+pub struct XMLParser<'a> {
+    lexer: XMLLexer<'a>,
+    tokens: RefCell<Vec<DocToken<'a>>>,
+}
+
+impl<'a> XMLParser<'a> {
+    pub fn new(content: &'a str) -> Self {
+        Self {
+            lexer: XMLLexer::new(content),
+            tokens: RefCell::new(Vec::new()),
+        }
+    }
+    pub fn tokenize(&'a self) -> Result<(), error::ParseError> {
+        loop {
+            let token = self.lexer.next_token()?;
+            if let TokenKind::EndOfFile = token.kind {
+                break;
+            }
+            if let TokenKind::Whitespace = token.kind {
+            } else {
+                self.tokens.borrow_mut().push(token);
+            }
+        }
+        Ok(())
+    }
+    pub fn parse(&'a self) -> Result<Rc<XMLDocNode>, error::ParseError> {
+        self.tokenize()?;
+        let mut node_stack: Vec<Rc<XMLDocNode>> = Vec::new();
+
+        let tokens = self.tokens.borrow();
+
+        let first_tag: XMLTag;
+
+        let _first = match tokens.first() {
+            Some(tkn) => match &tkn.kind {
+                TokenKind::Tag(tag) => match tag.kind {
+                    TagKind::Opening => {
+                        first_tag = tag.to_owned();
+                        tkn
+                    }
+                    _ => {
+                        return Err(error::ParseError::InvalidFirstToken);
+                    }
+                },
+                _ => return Err(error::ParseError::InvalidFirstToken),
+            },
+            None => {
+                return Err(error::ParseError::NoTokensToParse);
+            }
+        };
+
+        let mut _root = XMLDocNode::new(first_tag);
+        let root = Rc::new(_root);
+
+        node_stack.push(Rc::clone(&root));
+
+        for token in self.tokens.borrow()[1..].iter() {
+            match &token.kind {
+                TokenKind::String => {
+                    let target_node = node_stack.last().unwrap();
+                    target_node.content.borrow_mut().push_str(token.text);
+                }
+                TokenKind::Tag(tag) => {
+                    if let TagKind::Opening = tag.kind {
+                        let _new_node = XMLDocNode::new(tag.to_owned());
+                        let new_node = Rc::new(_new_node);
+
+                        node_stack
+                            .last_mut()
+                            .unwrap()
+                            .children
+                            .borrow_mut()
+                            .push(Rc::clone(&new_node));
+                        node_stack.push(Rc::clone(&new_node));
+                    } else {
+                        node_stack.pop();
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(root)
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -186,5 +285,16 @@ mod tests {
         ];
 
         assert_eq!(parsed_tokens, actual_tokens);
+    }
+
+    #[test]
+    fn test_xml_parsing() {
+        let test_str = "<xml> <name> John <child age='55'> Mike </child> </name> </xml>";
+
+        let test_parser = XMLParser::new(test_str);
+
+        let root = test_parser.parse().unwrap();
+
+        println!("{:?}", root);
     }
 }
