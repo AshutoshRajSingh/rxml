@@ -141,12 +141,12 @@ impl<'a> TagLexer<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TagKind {
     Opening,
     Closing,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct XMLTag {
     pub name: String,
     pub attribs: HashMap<String, String>,
