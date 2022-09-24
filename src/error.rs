@@ -63,6 +63,8 @@ impl Error for TagParseError {}
 pub enum ParseError {
     UnterminatedAngularBracket(usize),
     TagParseError(TagParseError),
+    NoTokensToParse,
+    InvalidFirstToken,
 }
 
 impl Display for ParseError {
@@ -73,6 +75,12 @@ impl Display for ParseError {
             }
             ParseError::TagParseError(internal_err) => {
                 write!(f, "{}", internal_err.to_string())
+            }
+            ParseError::NoTokensToParse => {
+                write!(f, "Lexer could not produce any tokens")
+            }
+            ParseError::InvalidFirstToken => {
+                write!(f, "First token of xml document should be of type XMLTag")
             }
         }
     }
