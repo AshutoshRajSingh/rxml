@@ -1,4 +1,4 @@
-use crate::err;
+use crate::error;
 use std::cell::{Ref, RefCell};
 use std::cmp::PartialEq;
 use std::collections::HashMap;
@@ -65,7 +65,7 @@ impl<'a> TagLexer<'a> {
     fn end(&self) -> bool {
         *self.position.borrow() >= self.content.len()
     }
-    pub fn next_token(&self) -> Result<TagToken, Box<dyn err::TagParseError>> {
+    pub fn next_token(&self) -> Result<TagToken, error::TagParseError> {
         let start = self.cur();
         if self.end() {
             return Ok(TagToken::new(
@@ -87,7 +87,7 @@ impl<'a> TagLexer<'a> {
 
             while self.current() != quote_type {
                 if self.end() {
-                    return Err(Box::new(err::UnterminatedStringLiteral { loc: start }));
+                    return Err(error::TagParseError::UnterminatedStringLiteral(start));
                 }
                 self.next();
             }
@@ -193,7 +193,7 @@ impl<'a> TagParser<'a> {
         }
     }
 
-    fn tokenize(&'a self) -> Result<(), Box<dyn err::TagParseError>> {
+    fn tokenize(&'a self) -> Result<(), error::TagParseError> {
         loop {
             let cur_token = self.lexer.next_token()?;
             if let TokenKind::EndOfLine = cur_token.kind {
@@ -208,11 +208,11 @@ impl<'a> TagParser<'a> {
         Ok(())
     }
 
-    fn peek(&self, offset: i64) -> Result<Ref<'a, TagToken>, err::PeekOutOfBoundsError> {
+    fn peek(&self, offset: i64) -> Result<Ref<'a, TagToken>, error::TagParseError> {
         let pos_copy = *self.position.borrow() as i64;
         if pos_copy + offset < 0 || pos_copy + offset >= self.content.len() as i64 {
-            return Err(err::PeekOutOfBoundsError {
-                peek_offset: offset,
+            return Err(error::TagParseError::PeekOutOfBounds {
+                offset: offset,
                 cur_idx: *self.position.borrow(),
                 len: self.content.len(),
             });
@@ -233,7 +233,7 @@ impl<'a> TagParser<'a> {
         *self.position.borrow() >= self.tokens.borrow().len()
     }
 
-    pub fn parse(&'a self) -> Result<XMLTag, Box<dyn err::TagParseError>> {
+    pub fn parse(&'a self) -> Result<XMLTag, error::TagParseError> {
         self.tokenize()?;
         let first = self.cur_token();
 
@@ -252,10 +252,10 @@ impl<'a> TagParser<'a> {
             if let TokenKind::String = second.kind {
                 name = String::from(second.text);
             } else {
-                return Err(Box::new(err::InvalidFirstTokenError));
+                return Err(error::TagParseError::InvalidFirstToken);
             }
         } else {
-            return Err(Box::new(err::InvalidFirstTokenError));
+            return Err(error::TagParseError::InvalidFirstToken);
         }
 
         let mut attribs: HashMap<String, String> = HashMap::new();
@@ -266,21 +266,21 @@ impl<'a> TagParser<'a> {
                 let left = match self.peek(-1) {
                     Ok(tkn) => tkn,
                     Err(_) => {
-                        return Err(Box::new(err::NoTokenAtLocationError {
+                        return Err(error::TagParseError::NoTokenAtLocation {
                             expected_kind: String::from("String"),
                             direction: String::from("left"),
                             current: String::from("Equals"),
-                        }));
+                        });
                     }
                 };
                 let right = match self.peek(1) {
                     Ok(tkn) => tkn,
                     Err(_) => {
-                        return Err(Box::new(err::NoTokenAtLocationError {
+                        return Err(error::TagParseError::NoTokenAtLocation {
                             expected_kind: String::from("StringLiteral"),
                             direction: String::from("right"),
                             current: String::from("Equals"),
-                        }));
+                        });
                     }
                 };
                 if let (TokenKind::String, TokenKind::StringLiteral) = (&left.kind, &right.kind) {
@@ -288,7 +288,7 @@ impl<'a> TagParser<'a> {
                     let v = String::from(&right.text[1..right.text.len() - 1]);
                     attribs.insert(k, v);
                 } else {
-                    return Err(Box::new(err::UnexpectedTagTokenError));
+                    return Err(error::TagParseError::UnexpectedTagToken);
                 }
             }
             self.next();
@@ -396,13 +396,14 @@ mod tests {
 
         match test_parser.parse() {
             Ok(_tag) => panic!("Blimey mate it was supposed to fail 'ere"),
-            Err(e) => match e.as_any().downcast_ref::<err::UnterminatedStringLiteral>() {
-                Some(_) => {}
-                None => panic!(
-                    "It was supposed to fail but not like this mate, actual error: {:?}",
-                    e
-                ),
-            },
+            Err(e) => {
+                match e {
+                    error::TagParseError::UnterminatedStringLiteral(_loc) => {}
+                    _ => {
+                        panic!("Bugger, got wrong error, expected UnterminatedStringLiteral, got {:?}", e)
+                    }
+                }
+            }
         }
     }
 
@@ -414,10 +415,10 @@ mod tests {
         let test_tag = test_parser.parse().unwrap();
 
         assert_eq!(test_tag.name, "tagname");
-        
+
         match test_tag.kind {
-            TagKind::Closing => {},
-            _ => panic!("Inputted closing tag string, got opening tag output")
+            TagKind::Closing => {}
+            _ => panic!("Inputted closing tag string, got opening tag output"),
         }
     }
 }
