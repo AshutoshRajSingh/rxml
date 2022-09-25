@@ -198,7 +198,9 @@ impl<'a> TagParser<'a> {
             let cur_token = self.lexer.next_token()?;
 
             match cur_token.kind {
-                TokenKind::EndOfLine => { break; }
+                TokenKind::EndOfLine => {
+                    break;
+                }
                 TokenKind::Whitespace => {}
                 _ => {
                     self.tokens.borrow_mut().push(cur_token);
@@ -342,7 +344,7 @@ mod tests {
             TagToken::new("'literal2'", TokenKind::StringLiteral, 11),
             TagToken::new("'literal3'", TokenKind::StringLiteral, 21),
             TagToken::new("\"literal4\"", TokenKind::StringLiteral, 32),
-            TagToken::new("\"literal5\"", TokenKind::StringLiteral, 42)
+            TagToken::new("\"literal5\"", TokenKind::StringLiteral, 42),
         ];
 
         while let Ok(token) = test_lexer.next_token() {
@@ -522,18 +524,21 @@ mod tests {
             HashMap::from([
                 (String::from("name"), String::from("John")),
                 (String::from("age"), String::from("55")),
-                (String::from("ssn"), String::from("67771020"))
+                (String::from("ssn"), String::from("67771020")),
             ]),
-            TagKind::Opening
+            TagKind::Opening,
         );
 
         assert_eq!(obtained_tag.name, actual_tag.name);
         assert_eq!(obtained_tag.attribs, actual_tag.attribs);
-        assert_eq!(discriminant(&obtained_tag.kind), discriminant(&actual_tag.kind));
+        assert_eq!(
+            discriminant(&obtained_tag.kind),
+            discriminant(&actual_tag.kind)
+        );
     }
 
     #[test]
-    fn test_attribute_parsing_failure_no_token_on_right () {
+    fn test_attribute_parsing_failure_no_token_on_right() {
         let text = "<tagname attrib1=>";
 
         let test_parser = TagParser::new(text);
@@ -541,14 +546,18 @@ mod tests {
         match test_parser.parse() {
             Ok(tag) => panic!("Expected NoTokenAtLocation, got tag: {:?}", tag),
             Err(e) => match e {
-                TagParseError::NoTokenAtLocation { expected_kind: _, direction: _, current: _ } => {}
-                _ => panic!("Expected NoTokenAtLocation got Err({:?})", e)
-            }
+                TagParseError::NoTokenAtLocation {
+                    expected_kind: _,
+                    direction: _,
+                    current: _,
+                } => {}
+                _ => panic!("Expected NoTokenAtLocation got Err({:?})", e),
+            },
         }
     }
 
     #[test]
-    fn test_attribute_parsing_failure_no_token_on_left () {
+    fn test_attribute_parsing_failure_no_token_on_left() {
         let text = "<tagname = 'attrib'>";
 
         let test_parser = TagParser::new(text);
@@ -556,14 +565,18 @@ mod tests {
         match test_parser.parse() {
             Ok(tag) => panic!("Expected NoTokenAtLocation, got tag: {:?}", tag),
             Err(e) => match e {
-                TagParseError::NoTokenAtLocation { expected_kind: _, direction: _, current: _ } => {}
-                _ => panic!("Expected NoTokenAtLocation, got Err({:?})", e)
-            }
+                TagParseError::NoTokenAtLocation {
+                    expected_kind: _,
+                    direction: _,
+                    current: _,
+                } => {}
+                _ => panic!("Expected NoTokenAtLocation, got Err({:?})", e),
+            },
         }
     }
 
     #[test]
-    fn test_attribute_parsing_failure_wrong_token_on_left () {
+    fn test_attribute_parsing_failure_wrong_token_on_left() {
         let text = "<tagname 'attrib1' = 'attrib2'>";
 
         let test_parser = TagParser::new(text);
@@ -572,13 +585,13 @@ mod tests {
             Ok(tag) => panic!("Expected UnexpectedTagToken, got tag: {:?}", tag),
             Err(e) => match e {
                 TagParseError::UnexpectedTagToken => {}
-                _ => panic!("Expected UnexpectedTagToken got: Err({:?})", e)
-            }
+                _ => panic!("Expected UnexpectedTagToken got: Err({:?})", e),
+            },
         }
     }
 
     #[test]
-    fn test_attribute_parsing_failure_wrong_token_on_right () {
+    fn test_attribute_parsing_failure_wrong_token_on_right() {
         let text = "<tagname var1 = oopsie_wongr_heer>";
 
         let test_parser = TagParser::new(text);
@@ -587,8 +600,8 @@ mod tests {
             Ok(tag) => panic!("Expected UnexpectedTagToken, got tag: {:?}", tag),
             Err(e) => match e {
                 TagParseError::UnexpectedTagToken => {}
-                _ => panic!("Expected UnexpectedTagToken got: Err({:?})", e)
-            }
+                _ => panic!("Expected UnexpectedTagToken got: Err({:?})", e),
+            },
         }
     }
 }
