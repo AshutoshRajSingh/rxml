@@ -65,6 +65,15 @@ pub enum ParseError {
     TagParseError(TagParseError),
     NoTokensToParse,
     InvalidFirstToken,
+    UnexpectedClosingTag {
+        expected: String,
+        obtained: String,
+        position: usize,
+    },
+    ClosingTagNeverOpened {
+        obtained: String,
+        position: usize,
+    },
 }
 
 impl Display for ParseError {
@@ -81,6 +90,24 @@ impl Display for ParseError {
             }
             ParseError::InvalidFirstToken => {
                 write!(f, "First token of xml document should be of type XMLTag")
+            }
+            ParseError::UnexpectedClosingTag {
+                expected,
+                obtained,
+                position,
+            } => {
+                write!(
+                    f,
+                    "Unexpected closing tag at location {}, expected: {}, obtained: {}",
+                    position, expected, obtained
+                )
+            }
+            ParseError::ClosingTagNeverOpened { obtained, position } => {
+                write!(
+                    f,
+                    "Closing tag: {}, found at position: {} was never opened",
+                    obtained, position
+                )
             }
         }
     }
