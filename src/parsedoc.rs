@@ -32,9 +32,18 @@ impl<'a> DocToken<'a> {
 }
 impl<'a> PartialEq for DocToken<'a> {
     fn eq(&self, other: &Self) -> bool {
-        self.text == other.text
+        let pre = self.text == other.text
             && self.position == other.position
-            && discriminant(&self.kind) == discriminant(&other.kind)
+            && discriminant(&self.kind) == discriminant(&other.kind);
+
+        let post: bool;
+
+        if let (TokenKind::Tag(t1), TokenKind::Tag(t2)) = (&self.kind, &other.kind) {
+            post = t1 == t2;
+        } else {
+            post = true;
+        }
+        pre && post
     }
 }
 pub struct XMLLexer<'a> {
@@ -92,7 +101,7 @@ impl<'a> XMLLexer<'a> {
 
             self.next();
 
-            let tagparser = TagParser::new(tagtext);
+            let tagparser = TagParser::new(tagtext, start);
 
             let tag = match tagparser.parse() {
                 Ok(t) => t,
@@ -210,7 +219,23 @@ impl<'a> XMLParser<'a> {
                             .push(Rc::clone(&new_node));
                         node_stack.push(Rc::clone(&new_node));
                     } else {
-                        node_stack.pop();
+                        let popped = match node_stack.pop() {
+                            Some(node) => node,
+                            None => {
+                                return Err(error::ParseError::ClosingTagNeverOpened {
+                                    obtained: tag.name.to_owned(),
+                                    position: 0,
+                                })
+                            }
+                        };
+
+                        if popped.tag.name != tag.name {
+                            return Err(error::ParseError::UnexpectedClosingTag {
+                                expected: popped.tag.name.to_owned(),
+                                obtained: tag.name.to_owned(),
+                                position: 0,
+                            });
+                        }
                     }
                 }
                 _ => {}
@@ -251,6 +276,7 @@ mod tests {
                     String::from("xml"),
                     HashMap::new(),
                     TagKind::Opening,
+                    0,
                 )),
                 0,
             ),
@@ -260,6 +286,7 @@ mod tests {
                     String::from("person"),
                     HashMap::from([(String::from("age"), String::from("55"))]),
                     TagKind::Opening,
+                    6,
                 )),
                 6,
             ),
@@ -270,6 +297,7 @@ mod tests {
                     String::from("person"),
                     HashMap::new(),
                     TagKind::Closing,
+                    36,
                 )),
                 36,
             ),
@@ -279,6 +307,7 @@ mod tests {
                     String::from("xml"),
                     HashMap::new(),
                     TagKind::Closing,
+                    48,
                 )),
                 48,
             ),
@@ -289,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_xml_parsing() {
-        let test_str = "<xml> <name> John <child age='55'> Mike </child> </name> </xml>";
+        let test_str = "<xml version='1.0' encoding='utf-8' sapghet> <name> John <child age='55'> Mike </child> </name> </xml>";
 
         let test_parser = XMLParser::new(test_str);
 
