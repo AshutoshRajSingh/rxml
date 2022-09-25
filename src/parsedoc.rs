@@ -144,6 +144,12 @@ impl XMLDocNode {
     }
 }
 
+impl PartialEq for XMLDocNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.content == other.content && self.children == other.children && self.tag == other.tag
+    }
+}
+
 pub struct XMLParser<'a> {
     lexer: XMLLexer<'a>,
     tokens: RefCell<Vec<DocToken<'a>>>,
