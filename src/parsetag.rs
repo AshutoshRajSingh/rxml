@@ -151,15 +151,26 @@ pub struct XMLTag {
     pub name: String,
     pub attribs: HashMap<String, String>,
     pub kind: TagKind,
+    pub pos: usize,
 }
 
 impl XMLTag {
-    pub fn new(name: String, attribs: HashMap<String, String>, kind: TagKind) -> Self {
+    pub fn new(name: String, attribs: HashMap<String, String>, kind: TagKind, pos: usize) -> Self {
         Self {
             name,
             attribs,
             kind,
+            pos,
         }
+    }
+}
+
+impl PartialEq for XMLTag {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.attribs == other.attribs
+            && self.pos == other.pos
+            && discriminant(&self.kind) == discriminant(&other.kind)
     }
 }
 
@@ -169,10 +180,11 @@ pub struct TagParser<'a> {
     pub lexer: TagLexer<'a>,
     position: RefCell<usize>,
     tokens: RefCell<Vec<TagToken<'a>>>,
+    doc_pos: usize,
 }
 
 impl<'a> TagParser<'a> {
-    pub fn new(content: &'a str) -> Self {
+    pub fn new(content: &'a str, doc_pos: usize) -> Self {
         let tokens: RefCell<Vec<TagToken>> = RefCell::new(Vec::new());
         if content.starts_with("<") && content.ends_with(">") {
             let trimmed = &content[1..content.len() - 1];
@@ -182,6 +194,7 @@ impl<'a> TagParser<'a> {
                 lexer,
                 position: RefCell::new(0),
                 tokens,
+                doc_pos,
             };
         }
         let lexer = TagLexer::new(content);
@@ -190,6 +203,7 @@ impl<'a> TagParser<'a> {
             lexer,
             position: RefCell::new(0),
             tokens,
+            doc_pos,
         }
     }
 
@@ -295,7 +309,7 @@ impl<'a> TagParser<'a> {
             }
             self.next();
         }
-        Ok(XMLTag::new(name, attribs, kind))
+        Ok(XMLTag::new(name, attribs, kind, self.doc_pos))
     }
 }
 
@@ -465,7 +479,7 @@ mod tests {
     fn test_opening_tag_parser_success() {
         let text = "<tagname attribute1='value1'>";
 
-        let test_parser = TagParser::new(text);
+        let test_parser = TagParser::new(text, 0);
         let test_tag = test_parser.parse().unwrap();
 
         let mut actual_attribs: HashMap<String, String> = HashMap::new();
@@ -480,7 +494,7 @@ mod tests {
     fn test_opening_tag_parser_failure() {
         let text = "<tagname attribute1 = 'oopsie no closing quote>";
 
-        let test_parser = TagParser::new(text);
+        let test_parser = TagParser::new(text, 0);
 
         match test_parser.parse() {
             Ok(_tag) => panic!("Blimey mate it was supposed to fail 'ere"),
@@ -500,7 +514,7 @@ mod tests {
     fn test_closing_tag_parser_success() {
         let text = "</tagname>";
 
-        let test_parser = TagParser::new(text);
+        let test_parser = TagParser::new(text, 0);
         let test_tag = test_parser.parse().unwrap();
 
         assert_eq!(test_tag.name, "tagname");
@@ -515,7 +529,7 @@ mod tests {
     fn test_tag_attribute_parsing_success() {
         let text = "<person name='John' age=\"55\" ssn='67771020'>";
 
-        let test_parser = TagParser::new(text);
+        let test_parser = TagParser::new(text, 0);
 
         let obtained_tag = test_parser.parse().unwrap();
 
@@ -527,21 +541,18 @@ mod tests {
                 (String::from("ssn"), String::from("67771020")),
             ]),
             TagKind::Opening,
+            0,
         );
 
-        assert_eq!(obtained_tag.name, actual_tag.name);
-        assert_eq!(obtained_tag.attribs, actual_tag.attribs);
-        assert_eq!(
-            discriminant(&obtained_tag.kind),
-            discriminant(&actual_tag.kind)
-        );
+        assert_eq!(obtained_tag, actual_tag);
+
     }
 
     #[test]
     fn test_attribute_parsing_failure_no_token_on_right() {
         let text = "<tagname attrib1=>";
 
-        let test_parser = TagParser::new(text);
+        let test_parser = TagParser::new(text, 0);
 
         match test_parser.parse() {
             Ok(tag) => panic!("Expected NoTokenAtLocation, got tag: {:?}", tag),
@@ -560,7 +571,7 @@ mod tests {
     fn test_attribute_parsing_failure_no_token_on_left() {
         let text = "<tagname = 'attrib'>";
 
-        let test_parser = TagParser::new(text);
+        let test_parser = TagParser::new(text, 0);
 
         match test_parser.parse() {
             Ok(tag) => panic!("Expected NoTokenAtLocation, got tag: {:?}", tag),
@@ -579,7 +590,7 @@ mod tests {
     fn test_attribute_parsing_failure_wrong_token_on_left() {
         let text = "<tagname 'attrib1' = 'attrib2'>";
 
-        let test_parser = TagParser::new(text);
+        let test_parser = TagParser::new(text, 0);
 
         match test_parser.parse() {
             Ok(tag) => panic!("Expected UnexpectedTagToken, got tag: {:?}", tag),
@@ -594,7 +605,7 @@ mod tests {
     fn test_attribute_parsing_failure_wrong_token_on_right() {
         let text = "<tagname var1 = oopsie_wongr_heer>";
 
-        let test_parser = TagParser::new(text);
+        let test_parser = TagParser::new(text, 0);
 
         match test_parser.parse() {
             Ok(tag) => panic!("Expected UnexpectedTagToken, got tag: {:?}", tag),
