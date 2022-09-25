@@ -196,13 +196,13 @@ impl<'a> TagParser<'a> {
     fn tokenize(&'a self) -> Result<(), error::TagParseError> {
         loop {
             let cur_token = self.lexer.next_token()?;
-            if let TokenKind::EndOfLine = cur_token.kind {
-                self.tokens.borrow_mut().push(cur_token);
-                break;
-            }
-            if let TokenKind::Whitespace = cur_token.kind {
-            } else {
-                self.tokens.borrow_mut().push(cur_token);
+
+            match cur_token.kind {
+                TokenKind::EndOfLine => { break; }
+                TokenKind::Whitespace => {}
+                _ => {
+                    self.tokens.borrow_mut().push(cur_token);
+                }
             }
         }
         Ok(())
@@ -210,7 +210,7 @@ impl<'a> TagParser<'a> {
 
     fn peek(&self, offset: i64) -> Result<Ref<'a, TagToken>, error::TagParseError> {
         let pos_copy = *self.position.borrow() as i64;
-        if pos_copy + offset < 0 || pos_copy + offset >= self.content.len() as i64 {
+        if pos_copy + offset < 1 || pos_copy + offset >= self.tokens.borrow().len() as i64 {
             return Err(error::TagParseError::PeekOutOfBounds {
                 offset: offset,
                 cur_idx: *self.position.borrow(),
@@ -299,6 +299,8 @@ impl<'a> TagParser<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::error::TagParseError;
+
     use super::*;
 
     #[test]
@@ -326,6 +328,90 @@ mod tests {
         }
 
         assert_eq!(tokens, actual_tokens);
+    }
+
+    #[test]
+    fn test_string_literal_tokenization() {
+        let text = "'literal1' 'literal2''literal3' \"literal4\"\"literal5\"";
+
+        let test_lexer = TagLexer::new(text);
+        let mut obtained_tokens: Vec<TagToken> = Vec::new();
+
+        let actual_tokens = vec![
+            TagToken::new("'literal1'", TokenKind::StringLiteral, 0),
+            TagToken::new("'literal2'", TokenKind::StringLiteral, 11),
+            TagToken::new("'literal3'", TokenKind::StringLiteral, 21),
+            TagToken::new("\"literal4\"", TokenKind::StringLiteral, 32),
+            TagToken::new("\"literal5\"", TokenKind::StringLiteral, 42)
+        ];
+
+        while let Ok(token) = test_lexer.next_token() {
+            if let TokenKind::EndOfLine = token.kind {
+                break;
+            } else if let TokenKind::Whitespace = token.kind {
+                continue;
+            }
+            obtained_tokens.push(token);
+        }
+        assert_eq!(obtained_tokens, actual_tokens);
+    }
+
+    #[test]
+    fn test_equals_tokenization() {
+        let text = "= == ===";
+
+        let test_lexer = TagLexer::new(text);
+
+        let mut obtained_tokens: Vec<TagToken> = Vec::new();
+
+        let actual_tokens = vec![
+            TagToken::new("=", TokenKind::Equals, 0),
+            TagToken::new("=", TokenKind::Equals, 2),
+            TagToken::new("=", TokenKind::Equals, 3),
+            TagToken::new("=", TokenKind::Equals, 5),
+            TagToken::new("=", TokenKind::Equals, 6),
+            TagToken::new("=", TokenKind::Equals, 7),
+        ];
+
+        while let Ok(token) = test_lexer.next_token() {
+            if let TokenKind::Whitespace = token.kind {
+                continue;
+            } else if let TokenKind::EndOfLine = token.kind {
+                break;
+            }
+            obtained_tokens.push(token);
+        }
+
+        assert_eq!(obtained_tokens, actual_tokens);
+    }
+
+    #[test]
+    fn test_forward_slash_tokenization() {
+        let text = "/ // ///";
+
+        let test_lexer = TagLexer::new(text);
+
+        let mut obtained_tokens: Vec<TagToken> = Vec::new();
+
+        let actual_tokens = vec![
+            TagToken::new("/", TokenKind::ForwardSlash, 0),
+            TagToken::new("/", TokenKind::ForwardSlash, 2),
+            TagToken::new("/", TokenKind::ForwardSlash, 3),
+            TagToken::new("/", TokenKind::ForwardSlash, 5),
+            TagToken::new("/", TokenKind::ForwardSlash, 6),
+            TagToken::new("/", TokenKind::ForwardSlash, 7),
+        ];
+
+        while let Ok(token) = test_lexer.next_token() {
+            if let TokenKind::Whitespace = token.kind {
+                continue;
+            } else if let TokenKind::EndOfLine = token.kind {
+                break;
+            }
+            obtained_tokens.push(token);
+        }
+
+        assert_eq!(obtained_tokens, actual_tokens);
     }
 
     #[test]
@@ -420,6 +506,89 @@ mod tests {
         match test_tag.kind {
             TagKind::Closing => {}
             _ => panic!("Inputted closing tag string, got opening tag output"),
+        }
+    }
+
+    #[test]
+    fn test_tag_attribute_parsing_success() {
+        let text = "<person name='John' age=\"55\" ssn='67771020'>";
+
+        let test_parser = TagParser::new(text);
+
+        let obtained_tag = test_parser.parse().unwrap();
+
+        let actual_tag = XMLTag::new(
+            String::from("person"),
+            HashMap::from([
+                (String::from("name"), String::from("John")),
+                (String::from("age"), String::from("55")),
+                (String::from("ssn"), String::from("67771020"))
+            ]),
+            TagKind::Opening
+        );
+
+        assert_eq!(obtained_tag.name, actual_tag.name);
+        assert_eq!(obtained_tag.attribs, actual_tag.attribs);
+        assert_eq!(discriminant(&obtained_tag.kind), discriminant(&actual_tag.kind));
+    }
+
+    #[test]
+    fn test_attribute_parsing_failure_no_token_on_right () {
+        let text = "<tagname attrib1=>";
+
+        let test_parser = TagParser::new(text);
+
+        match test_parser.parse() {
+            Ok(tag) => panic!("Expected NoTokenAtLocation, got tag: {:?}", tag),
+            Err(e) => match e {
+                TagParseError::NoTokenAtLocation { expected_kind: _, direction: _, current: _ } => {}
+                _ => panic!("Expected NoTokenAtLocation got Err({:?})", e)
+            }
+        }
+    }
+
+    #[test]
+    fn test_attribute_parsing_failure_no_token_on_left () {
+        let text = "<tagname = 'attrib'>";
+
+        let test_parser = TagParser::new(text);
+
+        match test_parser.parse() {
+            Ok(tag) => panic!("Expected NoTokenAtLocation, got tag: {:?}", tag),
+            Err(e) => match e {
+                TagParseError::NoTokenAtLocation { expected_kind: _, direction: _, current: _ } => {}
+                _ => panic!("Expected NoTokenAtLocation, got Err({:?})", e)
+            }
+        }
+    }
+
+    #[test]
+    fn test_attribute_parsing_failure_wrong_token_on_left () {
+        let text = "<tagname 'attrib1' = 'attrib2'>";
+
+        let test_parser = TagParser::new(text);
+
+        match test_parser.parse() {
+            Ok(tag) => panic!("Expected UnexpectedTagToken, got tag: {:?}", tag),
+            Err(e) => match e {
+                TagParseError::UnexpectedTagToken => {}
+                _ => panic!("Expected UnexpectedTagToken got: Err({:?})", e)
+            }
+        }
+    }
+
+    #[test]
+    fn test_attribute_parsing_failure_wrong_token_on_right () {
+        let text = "<tagname var1 = oopsie_wongr_heer>";
+
+        let test_parser = TagParser::new(text);
+
+        match test_parser.parse() {
+            Ok(tag) => panic!("Expected UnexpectedTagToken, got tag: {:?}", tag),
+            Err(e) => match e {
+                TagParseError::UnexpectedTagToken => {}
+                _ => panic!("Expected UnexpectedTagToken got: Err({:?})", e)
+            }
         }
     }
 }
