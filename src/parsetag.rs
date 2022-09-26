@@ -147,14 +147,14 @@ pub enum TagKind {
     Closing,
 }
 #[derive(Debug, Clone)]
-pub struct XMLTag {
+pub struct BaseXMLTag {
     pub name: String,
     pub attribs: HashMap<String, String>,
     pub kind: TagKind,
     pub pos: usize,
 }
 
-impl XMLTag {
+impl BaseXMLTag {
     pub fn new(name: String, attribs: HashMap<String, String>, kind: TagKind, pos: usize) -> Self {
         Self {
             name,
@@ -165,7 +165,7 @@ impl XMLTag {
     }
 }
 
-impl PartialEq for XMLTag {
+impl PartialEq for BaseXMLTag {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.attribs == other.attribs
@@ -249,7 +249,7 @@ impl<'a> TagParser<'a> {
         *self.position.borrow() >= self.tokens.borrow().len()
     }
 
-    pub fn parse(&'a self) -> Result<XMLTag, error::TagParseError> {
+    pub fn parse(&'a self) -> Result<BaseXMLTag, error::TagParseError> {
         self.tokenize()?;
         let first = self.cur_token();
 
@@ -309,7 +309,7 @@ impl<'a> TagParser<'a> {
             }
             self.next();
         }
-        Ok(XMLTag::new(name, attribs, kind, self.doc_pos))
+        Ok(BaseXMLTag::new(name, attribs, kind, self.doc_pos))
     }
 }
 
@@ -533,7 +533,7 @@ mod tests {
 
         let obtained_tag = test_parser.parse().unwrap();
 
-        let actual_tag = XMLTag::new(
+        let actual_tag = BaseXMLTag::new(
             String::from("person"),
             HashMap::from([
                 (String::from("name"), String::from("John")),

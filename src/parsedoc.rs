@@ -1,6 +1,6 @@
 use crate::{
     error,
-    parsetag::{TagKind, TagParser, XMLTag},
+    parsetag::{TagKind, TagParser, BaseXMLTag},
 };
 use std::cell::RefCell;
 use std::cmp::PartialEq;
@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 enum TokenKind {
-    Tag(XMLTag),
+    Tag(BaseXMLTag),
     String,
     EndOfFile,
     Whitespace,
@@ -130,12 +130,12 @@ impl<'a> XMLLexer<'a> {
 #[derive(Debug)]
 pub struct XMLDocNode {
     content: RefCell<String>,
-    pub tag: XMLTag,
+    pub tag: BaseXMLTag,
     pub children: RefCell<Vec<Rc<XMLDocNode>>>,
 }
 
 impl XMLDocNode {
-    fn new(tag: XMLTag) -> Self {
+    fn new(tag: BaseXMLTag) -> Self {
         Self {
             content: RefCell::new(String::new()),
             children: RefCell::new(Vec::new()),
@@ -181,7 +181,7 @@ impl<'a> XMLParser<'a> {
 
         let tokens = self.tokens.borrow();
 
-        let first_tag: XMLTag;
+        let first_tag: BaseXMLTag;
 
         let _first = match tokens.first() {
             Some(tkn) => match &tkn.kind {
@@ -276,7 +276,7 @@ mod tests {
         let actual_tokens = vec![
             DocToken::new(
                 "<xml>",
-                TokenKind::Tag(XMLTag::new(
+                TokenKind::Tag(BaseXMLTag::new(
                     String::from("xml"),
                     HashMap::new(),
                     TagKind::Opening,
@@ -286,7 +286,7 @@ mod tests {
             ),
             DocToken::new(
                 "</tag1>",
-                TokenKind::Tag(XMLTag::new(
+                TokenKind::Tag(BaseXMLTag::new(
                     String::from("tag1"),
                     HashMap::new(),
                     TagKind::Closing,
@@ -296,7 +296,7 @@ mod tests {
             ),
             DocToken::new(
                 "</tag2>",
-                TokenKind::Tag(XMLTag::new(
+                TokenKind::Tag(BaseXMLTag::new(
                     String::from("tag2"),
                     HashMap::new(),
                     TagKind::Closing,
@@ -306,7 +306,7 @@ mod tests {
             ),
             DocToken::new(
                 "<xml>",
-                TokenKind::Tag(XMLTag::new(
+                TokenKind::Tag(BaseXMLTag::new(
                     String::from("xml"),
                     HashMap::new(),
                     TagKind::Opening,
@@ -359,7 +359,7 @@ mod tests {
         let actual_tokens = vec![
             DocToken::new(
                 "<xml>",
-                TokenKind::Tag(XMLTag::new(
+                TokenKind::Tag(BaseXMLTag::new(
                     String::from("xml"),
                     HashMap::new(),
                     TagKind::Opening,
@@ -369,7 +369,7 @@ mod tests {
             ),
             DocToken::new(
                 "< person  age='55'  >",
-                TokenKind::Tag(XMLTag::new(
+                TokenKind::Tag(BaseXMLTag::new(
                     String::from("person"),
                     HashMap::from([(String::from("age"), String::from("55"))]),
                     TagKind::Opening,
@@ -380,7 +380,7 @@ mod tests {
             DocToken::new("David", TokenKind::String, 28),
             DocToken::new(
                 "< / person >",
-                TokenKind::Tag(XMLTag::new(
+                TokenKind::Tag(BaseXMLTag::new(
                     String::from("person"),
                     HashMap::new(),
                     TagKind::Closing,
@@ -390,7 +390,7 @@ mod tests {
             ),
             DocToken::new(
                 "< / xml  >",
-                TokenKind::Tag(XMLTag::new(
+                TokenKind::Tag(BaseXMLTag::new(
                     String::from("xml"),
                     HashMap::new(),
                     TagKind::Closing,
