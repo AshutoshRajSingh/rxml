@@ -252,7 +252,7 @@ impl<'a> XMLParser<'a> {
 }
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap};
+    use std::collections::HashMap;
 
     use crate::parsetag::TagKind;
 
@@ -269,58 +269,50 @@ mod tests {
             match tkn.kind {
                 TokenKind::EndOfFile => break,
                 TokenKind::Whitespace => {}
-                _ => obtained_tokens.push(tkn)
+                _ => obtained_tokens.push(tkn),
             }
         }
 
         let actual_tokens = vec![
             DocToken::new(
-                "<xml>", 
-                TokenKind::Tag(
-                    XMLTag::new(
-                        String::from("xml"),
-                        HashMap::new(),
-                        TagKind::Opening,
-                        0
-                    )
-                ),
-                0
+                "<xml>",
+                TokenKind::Tag(XMLTag::new(
+                    String::from("xml"),
+                    HashMap::new(),
+                    TagKind::Opening,
+                    0,
+                )),
+                0,
             ),
             DocToken::new(
-                "</tag1>", 
-                TokenKind::Tag(
-                    XMLTag::new(
-                        String::from("tag1"),
-                        HashMap::new(),
-                        TagKind::Closing,
-                        6
-                    )
-                ),
-                6
+                "</tag1>",
+                TokenKind::Tag(XMLTag::new(
+                    String::from("tag1"),
+                    HashMap::new(),
+                    TagKind::Closing,
+                    6,
+                )),
+                6,
             ),
             DocToken::new(
-                "</tag2>", 
-                TokenKind::Tag(
-                    XMLTag::new(
-                        String::from("tag2"),
-                        HashMap::new(),
-                        TagKind::Closing,
-                        13
-                    )
-                ),
-                13
+                "</tag2>",
+                TokenKind::Tag(XMLTag::new(
+                    String::from("tag2"),
+                    HashMap::new(),
+                    TagKind::Closing,
+                    13,
+                )),
+                13,
             ),
             DocToken::new(
-                "<xml>", 
-                TokenKind::Tag(
-                    XMLTag::new(
-                        String::from("xml"),
-                        HashMap::new(),
-                        TagKind::Opening,
-                        21
-                    )
-                ),
-                21
+                "<xml>",
+                TokenKind::Tag(XMLTag::new(
+                    String::from("xml"),
+                    HashMap::new(),
+                    TagKind::Opening,
+                    21,
+                )),
+                21,
             ),
         ];
 
@@ -342,8 +334,8 @@ mod tests {
                 error::ParseError::UnterminatedAngularBracket(pos) => {
                     assert_eq!(pos, 6)
                 }
-                _ => panic!("Expected UnterminatedAngularBracket, got Err({:?})", e)
-            }
+                _ => panic!("Expected UnterminatedAngularBracket, got Err({:?})", e),
+            },
         }
     }
 
