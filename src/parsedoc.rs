@@ -252,11 +252,100 @@ impl<'a> XMLParser<'a> {
 }
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap};
 
     use crate::parsetag::TagKind;
 
     use super::*;
+
+    #[test]
+    fn test_tag_tokenization_success() {
+        let text = "<xml> </tag1></tag2> <xml>";
+
+        let test_lexer = XMLLexer::new(text);
+        let mut obtained_tokens: Vec<DocToken> = Vec::new();
+
+        while let Ok(tkn) = test_lexer.next_token() {
+            match tkn.kind {
+                TokenKind::EndOfFile => break,
+                TokenKind::Whitespace => {}
+                _ => obtained_tokens.push(tkn)
+            }
+        }
+
+        let actual_tokens = vec![
+            DocToken::new(
+                "<xml>", 
+                TokenKind::Tag(
+                    XMLTag::new(
+                        String::from("xml"),
+                        HashMap::new(),
+                        TagKind::Opening,
+                        0
+                    )
+                ),
+                0
+            ),
+            DocToken::new(
+                "</tag1>", 
+                TokenKind::Tag(
+                    XMLTag::new(
+                        String::from("tag1"),
+                        HashMap::new(),
+                        TagKind::Closing,
+                        6
+                    )
+                ),
+                6
+            ),
+            DocToken::new(
+                "</tag2>", 
+                TokenKind::Tag(
+                    XMLTag::new(
+                        String::from("tag2"),
+                        HashMap::new(),
+                        TagKind::Closing,
+                        13
+                    )
+                ),
+                13
+            ),
+            DocToken::new(
+                "<xml>", 
+                TokenKind::Tag(
+                    XMLTag::new(
+                        String::from("xml"),
+                        HashMap::new(),
+                        TagKind::Opening,
+                        21
+                    )
+                ),
+                21
+            ),
+        ];
+
+        assert_eq!(obtained_tokens, actual_tokens);
+    }
+
+    #[test]
+    fn test_tag_tokenization_failure_unterminated_angular_bracket() {
+        let text = "<xml> <oopsi problem here";
+
+        let test_lexer = XMLLexer::new(text);
+
+        test_lexer.next_token().unwrap();
+        test_lexer.next_token().unwrap();
+
+        match test_lexer.next_token() {
+            Ok(tkn) => panic!("Expected UnterminatedAngularBracket, got token: {:?}", tkn),
+            Err(e) => match e {
+                error::ParseError::UnterminatedAngularBracket(pos) => {
+                    assert_eq!(pos, 6)
+                }
+                _ => panic!("Expected UnterminatedAngularBracket, got Err({:?})", e)
+            }
+        }
+    }
 
     #[test]
     fn test_xml_tokenization() {
@@ -320,16 +409,5 @@ mod tests {
         ];
 
         assert_eq!(parsed_tokens, actual_tokens);
-    }
-
-    #[test]
-    fn test_xml_parsing() {
-        let test_str = "<xml version='1.0' encoding='utf-8' sapghet> <name> John <child age='55'> Mike </child> </name> </xml>";
-
-        let test_parser = XMLParser::new(test_str);
-
-        let root = test_parser.parse().unwrap();
-
-        println!("{:?}", root);
     }
 }
