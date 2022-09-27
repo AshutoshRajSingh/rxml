@@ -347,7 +347,6 @@ mod tests {
                 48,
             ),
         ];
-
         assert_eq!(parsed_tokens, actual_tokens);
     }
 }
