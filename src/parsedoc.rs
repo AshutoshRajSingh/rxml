@@ -1,6 +1,7 @@
 use crate::{
+    api::{XMLNode, XMLTag},
     error,
-    parsetag::{TagKind, TagParser, BaseXMLTag},
+    parsetag::{BaseXMLTag, TagKind, TagParser},
 };
 use std::cell::RefCell;
 use std::cmp::PartialEq;
@@ -127,127 +128,74 @@ impl<'a> XMLLexer<'a> {
     }
 }
 
-#[derive(Debug)]
-pub struct XMLDocNode {
-    content: RefCell<String>,
-    pub tag: BaseXMLTag,
-    pub children: RefCell<Vec<Rc<XMLDocNode>>>,
-}
-
-impl XMLDocNode {
-    fn new(tag: BaseXMLTag) -> Self {
-        Self {
-            content: RefCell::new(String::new()),
-            children: RefCell::new(Vec::new()),
-            tag,
-        }
-    }
-}
-
-impl PartialEq for XMLDocNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.content == other.content && self.children == other.children && self.tag == other.tag
-    }
-}
-
 pub struct XMLParser<'a> {
     lexer: XMLLexer<'a>,
-    tokens: RefCell<Vec<DocToken<'a>>>,
 }
 
 impl<'a> XMLParser<'a> {
     pub fn new(content: &'a str) -> Self {
         Self {
             lexer: XMLLexer::new(content),
-            tokens: RefCell::new(Vec::new()),
         }
     }
-    pub fn tokenize(&'a self) -> Result<(), error::ParseError> {
-        loop {
-            let token = self.lexer.next_token()?;
-            if let TokenKind::EndOfFile = token.kind {
-                break;
-            }
-            if let TokenKind::Whitespace = token.kind {
-            } else {
-                self.tokens.borrow_mut().push(token);
-            }
-        }
-        Ok(())
-    }
-    pub fn parse(&'a self) -> Result<Rc<XMLDocNode>, error::ParseError> {
-        self.tokenize()?;
-        let mut node_stack: Vec<Rc<XMLDocNode>> = Vec::new();
+    pub fn parse(&'a self) -> Result<Rc<XMLNode>, error::ParseError> {
+        let mut node_stack: Vec<Rc<XMLNode>> = Vec::new();
 
-        let tokens = self.tokens.borrow();
-
-        let first_tag: BaseXMLTag;
-
-        let _first = match tokens.first() {
-            Some(tkn) => match &tkn.kind {
-                TokenKind::Tag(tag) => match tag.kind {
-                    TagKind::Opening => {
-                        first_tag = tag.to_owned();
-                        tkn
-                    }
-                    _ => {
-                        return Err(error::ParseError::InvalidFirstToken);
-                    }
-                },
-                _ => return Err(error::ParseError::InvalidFirstToken),
-            },
-            None => {
-                return Err(error::ParseError::NoTokensToParse);
+        let first_tag = match self.lexer.next_token()?.kind {
+            TokenKind::Tag(tag) => XMLTag::from(tag),
+            _ => {
+                return Err(error::ParseError::InvalidFirstToken);
             }
         };
 
-        let mut _root = XMLDocNode::new(first_tag);
-        let root = Rc::new(_root);
+        let first_node = Rc::new(XMLNode::new(first_tag));
 
-        node_stack.push(Rc::clone(&root));
+        node_stack.push(Rc::clone(&first_node));
 
-        for token in self.tokens.borrow()[1..].iter() {
-            match &token.kind {
-                TokenKind::String => {
-                    let target_node = node_stack.last().unwrap();
-                    target_node.content.borrow_mut().push_str(token.text);
-                }
-                TokenKind::Tag(tag) => {
-                    if let TagKind::Opening = tag.kind {
-                        let _new_node = XMLDocNode::new(tag.to_owned());
-                        let new_node = Rc::new(_new_node);
+        while !self.lexer.end() {
+            let cur_token = self.lexer.next_token()?;
 
+            match cur_token.kind {
+                TokenKind::Tag(tag) => match tag.kind {
+                    TagKind::Opening => {
+                        let _new_node = Rc::new(XMLNode::new(XMLTag::from(tag)));
+                        let new_node = Rc::clone(&_new_node);
                         node_stack
-                            .last_mut()
+                            .last()
                             .unwrap()
                             .children
                             .borrow_mut()
                             .push(Rc::clone(&new_node));
                         node_stack.push(Rc::clone(&new_node));
-                    } else {
+                    }
+                    TagKind::Closing => {
                         let popped = match node_stack.pop() {
                             Some(node) => node,
                             None => {
                                 return Err(error::ParseError::ClosingTagNeverOpened {
                                     obtained: tag.name.to_owned(),
-                                    position: 0,
-                                })
+                                    position: tag.pos,
+                                });
                             }
                         };
 
                         if popped.tag.name != tag.name {
                             return Err(error::ParseError::UnexpectedClosingTag {
                                 expected: popped.tag.name.to_owned(),
-                                obtained: tag.name.to_owned(),
-                                position: 0,
+                                obtained: tag.name,
+                                position: popped.tag._pos,
                             });
                         }
                     }
+                },
+                TokenKind::String => node_stack.last().unwrap().push_content(cur_token.text),
+                TokenKind::Whitespace => {}
+                TokenKind::EndOfFile => {
+                    break;
                 }
-                _ => {}
             }
         }
-        Ok(root)
+        Ok(first_node)
     }
 }
 #[cfg(test)]
