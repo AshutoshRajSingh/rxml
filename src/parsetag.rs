@@ -15,7 +15,7 @@ use std::mem::discriminant;
 }
 
 #[derive(Debug, Clone)]
-pub struct TagToken<'a> {
+struct TagToken<'a> {
     kind: TokenKind,
     text: &'a str,
     _position: usize,
