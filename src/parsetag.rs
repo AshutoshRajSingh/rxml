@@ -4,8 +4,7 @@ use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::mem::discriminant;
 
-#[derive(Debug, Clone)]
-pub enum TokenKind {
+#[derive(Debug, Clone)]enum TokenKind {
     String,
     StringLiteral,
     Equals,
@@ -65,7 +64,7 @@ impl<'a> TagLexer<'a> {
     fn end(&self) -> bool {
         *self.position.borrow() >= self.content.len()
     }
-    pub fn next_token(&self) -> Result<TagToken, error::TagParseError> {
+    fn next_token(&self) -> Result<TagToken, error::TagParseError> {
         let start = self.cur();
         if self.end() {
             return Ok(TagToken::new(
@@ -176,8 +175,8 @@ impl PartialEq for BaseXMLTag {
 
 #[derive(Debug)]
 pub struct TagParser<'a> {
-    pub content: &'a str,
-    pub lexer: TagLexer<'a>,
+    content: &'a str,
+    lexer: TagLexer<'a>,
     position: RefCell<usize>,
     tokens: RefCell<Vec<TagToken<'a>>>,
     doc_pos: usize,
