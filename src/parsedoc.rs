@@ -17,7 +17,7 @@ enum TokenKind {
 }
 
 #[derive(Debug)]
-pub struct DocToken<'a> {
+struct DocToken<'a> {
     text: &'a str,
     kind: TokenKind,
     position: usize,
@@ -52,7 +52,7 @@ pub struct XMLLexer<'a> {
     position: RefCell<usize>,
 }
 impl<'a> XMLLexer<'a> {
-    pub fn new(content: &'a str) -> Self {
+    fn new(content: &'a str) -> Self {
         Self {
             content,
             position: RefCell::new(0),
@@ -73,7 +73,7 @@ impl<'a> XMLLexer<'a> {
     fn end(&self) -> bool {
         self.cur() >= self.content.len()
     }
-    pub fn next_token(&self) -> Result<DocToken, error::ParseError> {
+    fn next_token(&self) -> Result<DocToken, error::ParseError> {
         let start = self.cur();
         if self.end() {
             return Ok(DocToken::new(
