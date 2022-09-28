@@ -1,6 +1,35 @@
 # RXML
 RXML (Pronounced rexml) is a highly makeshift, and very unstable XML parser written in rust by a cs college senior who didn't have anything better to do.
 
+## Installation
+1. Clone the repository using `git clone https://github.com/AshutoshRajSingh/rxml.git`
+2. In your `Cargo.toml` file, make modifications under the `[dependencies]` section:  
+    ```
+    [dependencies]
+    rxml = { path = "<path to root of cloned repo without angular brackets>" }
+    ```
+## Example
+`src/main.rs`
+```rust
+use rxml::RXML;
+fn main() {
+    let some_xml = String::from("<xml version='1.0' encoding='utf-8'> <person> <name> John </name> <age> 25 </age> <ssn> 5 </ssn> </person> </xml>");
+
+    let rxml = RXML::new(some_xml);
+    let top_node = rxml.parse().unwrap();
+
+    println!("{:#}", top_node);
+}
+```
+Running above code will output: 
+```
+<xml {"version": "1.0", "encoding": "utf-8"}>
+ <person {}>
+  <ssn {}> '5'
+  <age {}> '25'
+  <name {}> 'John'
+```
+
 ## Features:
 - Simple API (only one function to call)
 - Maybe faster because it doesn't support any of that xml schema stuff, everything is a string.
